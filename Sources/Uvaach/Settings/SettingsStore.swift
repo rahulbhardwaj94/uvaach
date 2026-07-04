@@ -26,7 +26,12 @@ final class SettingsStore: ObservableObject {
     private init() {
         let defaults = UserDefaults.standard
         whisperModel = defaults.string(forKey: "whisperModel") ?? Self.whisperModels[0]
-        llmCleanupEnabled = defaults.object(forKey: "llmCleanupEnabled") as? Bool ?? true
+        // Default OFF: A/B testing vs Wispr Flow showed the 1B cleanup model
+        // drops words ("I think"), swaps meaning ("and"→"or"), and stutters —
+        // while the LLM-free path scored 0% WER on long-form. Rule-based
+        // cleanup + Whisper's own punctuation is the trustworthy baseline;
+        // the LLM stays available as an opt-in.
+        llmCleanupEnabled = defaults.object(forKey: "llmCleanupEnabled") as? Bool ?? false
         ollamaModel = defaults.string(forKey: "ollamaModel") ?? "gemma3:1b"
     }
 }

@@ -39,7 +39,7 @@ struct SettingsView: View {
                     TextField("Ollama model", text: $settings.ollamaModel)
                         .help("Small models like gemma3:1b keep latency and memory low. Large models (7B+) are slow next to Whisper on 16 GB.")
                 }
-                Text("Filler words (um, uh) are always removed, even without the LLM.")
+                Text("Filler words (um, uh) are always removed, even without the LLM. Small models can occasionally drop or swap words — leave this off if exact wording matters.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
