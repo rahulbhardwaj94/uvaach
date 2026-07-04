@@ -20,6 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Menu-bar only; LSUIElement in Info.plist hides the Dock icon,
         // but enforce it when run as a bare executable during development.
         NSApp.setActivationPolicy(.accessory)
+
+        if !PermissionsManager.shared.allGranted {
+            OnboardingWindow.shared.show()
+        }
     }
 }
 
@@ -63,6 +67,10 @@ struct MenuContent: View {
 
     var body: some View {
         Text("rbFlow — \(appState.status.label)")
+        Divider()
+        Button("Setup & Permissions…") {
+            OnboardingWindow.shared.show()
+        }
         Divider()
         Button("Quit rbFlow") {
             NSApp.terminate(nil)
