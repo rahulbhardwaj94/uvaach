@@ -14,7 +14,7 @@ final class DictationHUD {
     func show() {
         if panel == nil {
             let hosting = NSHostingView(rootView: HUDView())
-            let size = NSSize(width: 230, height: 48)
+            let size = NSSize(width: 170, height: 44)
             let p = NSPanel(
                 contentRect: NSRect(origin: .zero, size: size),
                 styleMask: [.borderless, .nonactivatingPanel],
@@ -69,17 +69,15 @@ private struct HUDView: View {
             switch appState.status {
             case .recording:
                 PulsingRing()
-                FlowingWave(level: appState.audioLevel)
                 Text("Listening")
                     .font(.callout)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .foregroundStyle(.white.opacity(0.8))
             case .transcribing, .injecting:
                 ProcessingDots()
                 Text(appState.status == .transcribing ? "Transcribing…" : "Inserting…")
                     .font(.callout)
                     .foregroundStyle(.white.opacity(0.75))
             case .inserted:
-                InsertedBadge()
                 Text("Inserted")
                     .font(.callout.weight(.medium))
                     .foregroundStyle(.white.opacity(0.9))
@@ -88,7 +86,7 @@ private struct HUDView: View {
             }
         }
         .padding(.horizontal, 16)
-        .frame(width: 230, height: 48)
+        .frame(width: 170, height: 44)
         .background(AuroraGlass())
         .clipShape(Capsule())
         .overlay(Capsule().strokeBorder(.white.opacity(0.12), lineWidth: 1))
@@ -142,109 +140,6 @@ private struct PulsingRing: View {
             }
             .frame(width: 22, height: 22)
         }
-    }
-}
-
-/// Checkmark badge for the "Inserted" confirmation, ringed like the concept.
-private struct InsertedBadge: View {
-    var body: some View {
-        ZStack {
-            Circle()
-                .strokeBorder(.white.opacity(0.18), lineWidth: 1)
-                .frame(width: 22, height: 22)
-            Circle()
-                .fill(
-                    LinearGradient(colors: [.indigo.opacity(0.9), .purple.opacity(0.7)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                )
-                .frame(width: 18, height: 18)
-            Image(systemName: "checkmark")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(.white)
-        }
-    }
-}
-
-/// Continuous voice-reactive waveform: three layered sine waves drifting at
-/// different speeds, their amplitude driven by the mic level and tapered at
-/// the edges so the wave melts into the pill.
-private struct FlowingWave: View {
-    let level: Float
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
-            let time = context.date.timeIntervalSinceReferenceDate
-            Canvas { canvas, size in
-                let midY = size.height / 2
-                // Slow breath so the wave feels alive even in silence.
-                let breath = 0.9 + 0.1 * sin(time * 1.4)
-                let amplitude = midY * (0.18 + min(CGFloat(level) * 12, 1) * 0.82) * breath
-
-                let layers: [(speed: Double, freq: Double, scale: CGFloat, opacity: Double)] = [
-                    (2.2, 1.4, 1.0, 1.0),
-                    (-1.6, 2.1, 0.62, 0.55),
-                    (2.9, 3.2, 0.34, 0.3),
-                ]
-
-                for layer in layers {
-                    var path = Path()
-                    let steps = 72
-                    for i in 0...steps {
-                        let x = CGFloat(i) / CGFloat(steps)
-                        // Edge taper plus a slow traveling crest, so peaks
-                        // roll across the pill instead of pulsing in place.
-                        let taper = pow(sin(CGFloat.pi * x), 0.8)
-                        let crest = 0.72 + 0.28 * sin(Double(x) * 2 * Double.pi * 0.8 - time * 1.7)
-                        // Three slightly detuned harmonics per layer make the
-                        // motion organic rather than metronomic.
-                        let base = Double(x) * layer.freq * 2 * .pi
-                        let wave = 0.6 * sin(base + time * layer.speed * 2)
-                            + 0.28 * sin(base * 1.9 + time * layer.speed * 1.3 + 1.2)
-                            + 0.12 * sin(base * 2.8 - time * layer.speed * 0.8 + 2.6)
-                        let y = midY + amplitude * layer.scale * taper * CGFloat(crest) * CGFloat(wave)
-                        let point = CGPoint(x: x * size.width, y: y)
-                        if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
-                    }
-
-                    // Iridescent aurora sweep: violet → blue → cyan → violet.
-                    let gradient = GraphicsContext.Shading.linearGradient(
-                        Gradient(colors: [
-                            .purple.opacity(layer.opacity * 0.8),
-                            .blue.opacity(layer.opacity * 0.9),
-                            .cyan.opacity(layer.opacity),
-                            .purple.opacity(layer.opacity * 0.7),
-                        ]),
-                        startPoint: .zero,
-                        endPoint: CGPoint(x: size.width, y: 0)
-                    )
-
-                    // Soft halo just behind the filament — present, not neon.
-                    let haloGradient = GraphicsContext.Shading.linearGradient(
-                        Gradient(colors: [
-                            .purple.opacity(layer.opacity * 0.25),
-                            .cyan.opacity(layer.opacity * 0.35),
-                            .purple.opacity(layer.opacity * 0.25),
-                        ]),
-                        startPoint: .zero,
-                        endPoint: CGPoint(x: size.width, y: 0)
-                    )
-                    var glow = canvas
-                    glow.addFilter(.blur(radius: 2.5))
-                    glow.stroke(
-                        path,
-                        with: haloGradient,
-                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round)
-                    )
-                    // Core filament.
-                    canvas.stroke(
-                        path,
-                        with: gradient,
-                        style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round)
-                    )
-                }
-            }
-        }
-        .frame(width: 96, height: 32)
     }
 }
 
