@@ -92,10 +92,17 @@ final class DictationController {
         if settings.llmCleanupEnabled {
             text = await OllamaClient().cleanup(text, model: settings.ollamaModel)
         }
+        // Vocabulary corrections run last so they override both Whisper and
+        // the LLM (exact casing like "rbFlow" survives).
+        text = VocabularyStore.shared.apply(to: text)
         guard !text.isEmpty else { return }
 
         AppState.shared.status = .injecting
         AppState.shared.lastTranscript = text
+        TranscriptStore.shared.add(
+            text: text,
+            audioSeconds: Double(samples.count) / AudioRecorder.targetSampleRate
+        )
         _ = await TextInjector.insert(text)
 
         NSLog("rbFlow: dictation done in %.2fs — \"%@\"",

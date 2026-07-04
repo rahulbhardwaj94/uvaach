@@ -68,9 +68,7 @@ private struct HUDView: View {
         HStack(spacing: 10) {
             switch appState.status {
             case .recording:
-                Image(systemName: "mic.fill")
-                    .foregroundStyle(.red)
-                LevelBars(level: appState.audioLevel)
+                FlowingWave(level: appState.audioLevel)
             case .transcribing, .injecting:
                 ProcessingDots()
                 Text(appState.status == .transcribing ? "Transcribing…" : "Inserting…")
@@ -84,29 +82,51 @@ private struct HUDView: View {
         .frame(width: 180, height: 44)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(.quaternary))
+        .tint(.blue)
     }
 }
 
-/// Audio-level-reactive bars. Each bar scales with the mic level plus a
-/// per-bar phase wobble so the pill feels alive even at steady volume.
-private struct LevelBars: View {
+/// Continuous voice-reactive waveform: three layered sine waves drifting at
+/// different speeds, their amplitude driven by the mic level and tapered at
+/// the edges so the wave melts into the pill.
+private struct FlowingWave: View {
     let level: Float
-    private let barCount = 10
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 3) {
-                ForEach(0..<barCount, id: \.self) { i in
-                    let wobble = 0.6 + 0.4 * sin(time * 9 + Double(i) * 1.1)
-                    let height = 4 + CGFloat(min(level * 14, 1)) * 22 * wobble
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(.tint)
-                        .frame(width: 3, height: max(4, height))
+            Canvas { canvas, size in
+                let midY = size.height / 2
+                // Idle breath keeps the wave alive between words.
+                let amplitude = midY * (0.15 + min(CGFloat(level) * 12, 1) * 0.85)
+
+                let layers: [(speed: Double, freq: Double, scale: CGFloat, opacity: Double)] = [
+                    (2.4, 1.6, 1.0, 0.9),
+                    (-1.7, 2.3, 0.6, 0.45),
+                    (3.1, 3.1, 0.35, 0.25),
+                ]
+
+                for layer in layers {
+                    var path = Path()
+                    let steps = 64
+                    for i in 0...steps {
+                        let x = CGFloat(i) / CGFloat(steps)
+                        // Edge taper: 0 at the ends, 1 in the middle.
+                        let envelope = sin(.pi * x)
+                        let angle = Double(x) * layer.freq * 2 * .pi + time * layer.speed * 2
+                        let y = midY + amplitude * layer.scale * envelope * CGFloat(sin(angle))
+                        let point = CGPoint(x: x * size.width, y: y)
+                        if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+                    }
+                    canvas.stroke(
+                        path,
+                        with: .color(.blue.opacity(layer.opacity)),
+                        style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
+                    )
                 }
             }
         }
-        .frame(height: 26)
+        .frame(width: 130, height: 30)
     }
 }
 

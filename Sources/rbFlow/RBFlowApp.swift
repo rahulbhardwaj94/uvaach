@@ -76,6 +76,9 @@ struct MenuContent: View {
     var body: some View {
         Text("rbFlow — \(appState.status.label)")
         Divider()
+        Button("History & Vocabulary…") {
+            DashboardWindow.shared.show()
+        }
         Button("Settings…") {
             SettingsWindow.shared.show()
         }
