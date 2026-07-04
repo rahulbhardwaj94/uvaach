@@ -60,6 +60,7 @@ final class AppState: ObservableObject {
     static let shared = AppState()
 
     @Published var status: DictationStatus = .idle
+    @Published var lastTranscript: String?
 
     private init() {}
 }

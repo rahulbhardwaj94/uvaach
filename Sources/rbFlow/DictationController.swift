@@ -15,6 +15,11 @@ final class DictationController {
     private init() {}
 
     func start() {
+        // Warm-load Whisper in the background so the first dictation is fast.
+        Task.detached(priority: .utility) {
+            await TranscriptionService.shared.warmUp(model: SettingsStore.shared.whisperModel)
+        }
+
         hotkeys.onPushToTalkDown = { [weak self] in self?.beginRecording() }
         hotkeys.onPushToTalkUp = { [weak self] in self?.finishRecording() }
         hotkeys.onToggle = { [weak self] in
@@ -57,8 +62,31 @@ final class DictationController {
     }
 
     private func process(samples: [Float]) async {
-        // Placeholder until the WhisperKit milestone lands.
-        let seconds = Double(samples.count) / AudioRecorder.targetSampleRate
-        NSLog("rbFlow: captured %.2fs of audio (%d samples)", seconds, samples.count)
+        let settings = SettingsStore.shared
+        let started = Date()
+
+        let raw: String
+        do {
+            raw = try await TranscriptionService.shared.transcribe(
+                samples: samples, model: settings.whisperModel
+            )
+        } catch {
+            NSLog("rbFlow: transcription failed: %@", error.localizedDescription)
+            return
+        }
+        guard !raw.isEmpty else { return }
+
+        var text = TextCleaner.clean(raw)
+        if settings.llmCleanupEnabled {
+            text = await OllamaClient().cleanup(text, model: settings.ollamaModel)
+        }
+        guard !text.isEmpty else { return }
+
+        AppState.shared.status = .injecting
+        AppState.shared.lastTranscript = text
+        _ = await TextInjector.insert(text)
+
+        NSLog("rbFlow: dictation done in %.2fs — \"%@\"",
+              Date().timeIntervalSince(started), text)
     }
 }
