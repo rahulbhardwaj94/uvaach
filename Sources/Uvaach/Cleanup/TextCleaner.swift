@@ -16,6 +16,15 @@ enum TextCleaner {
             in: result, range: range, withTemplate: ""
         )
 
+        // Whisper duplicates words at chunk boundaries ("issues. issues.").
+        // Collapse exact immediate repeats of words ≥3 chars (incl. trailing
+        // punctuation) — short repeats like "no, no" are left alone.
+        result = result.replacingOccurrences(
+            of: #"\b([A-Za-z']{3,}[.!?,]?)(\s+\1)+"#,
+            with: "$1",
+            options: .regularExpression
+        )
+
         // Collapse doubled spaces and fix space-before-punctuation artifacts
         // left behind by filler removal.
         result = result.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)

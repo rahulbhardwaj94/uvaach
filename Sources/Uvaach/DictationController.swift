@@ -54,19 +54,22 @@ final class DictationController {
 
     private func finishRecording() {
         guard AppState.shared.status == .recording else { return }
-        let samples = recorder.stop()
-        NSSound(named: "Bottle")?.play()
-
+        AppState.shared.status = .transcribing
         AppState.shared.audioLevel = 0
 
-        guard samples.count >= minimumSamples else {
-            AppState.shared.status = .idle
-            DictationHUD.shared.hide()
-            return
-        }
-
-        AppState.shared.status = .transcribing
         Task {
+            // Grace period: people release the key while the last word is
+            // still leaving their mouth. Capture 300 ms more before stopping
+            // so the tail isn't clipped ("…on its" instead of "…on its own").
+            try? await Task.sleep(for: .milliseconds(300))
+            let samples = recorder.stop()
+            NSSound(named: "Bottle")?.play()
+
+            guard samples.count >= minimumSamples else {
+                AppState.shared.status = .idle
+                DictationHUD.shared.hide()
+                return
+            }
             await process(samples: samples)
             // Success path already hid the pill at paste time; this covers
             // failures (empty transcript, injection fallback).
@@ -91,7 +94,10 @@ final class DictationController {
         guard !raw.isEmpty else { return }
 
         var text = TextCleaner.clean(raw)
-        if settings.llmCleanupEnabled {
+        // The 1B cleanup model helps short dictations (fillers, punctuation)
+        // but drops sentences and mangles casing beyond a few sentences —
+        // Whisper's own punctuation is already good there, so skip it.
+        if settings.llmCleanupEnabled && text.count <= 350 {
             text = await OllamaClient().cleanup(text, model: settings.ollamaModel)
         }
         // Vocabulary corrections run last so they override both Whisper and
