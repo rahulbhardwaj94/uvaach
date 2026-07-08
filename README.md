@@ -1,3 +1,5 @@
+<img src="assets/icon.png" align="right" width="110" alt="LokVaani icon — a lightning bolt between voice bars"/>
+
 # LokVaani <sup>लोकवाणी</sup>
 
 **Fully local, open-source voice dictation for macOS.** Hold a key, speak, and clean text appears in whatever app you're typing in — powered entirely by on-device AI. No cloud, no account, no subscription.
@@ -51,9 +53,10 @@ A floating HUD shows a voice-reactive waveform while you speak and fades out the
 
 ## Features
 
-- 🎙 **Push-to-talk & toggle** — hold Right Option, or tap a customizable chord (default ⌥⌘D)
+- 🎙 **Push-to-talk, hands-free & toggle** — hold Right Option to talk; hold it 3 s and release to lock hands-free (tap once to stop); or tap a customizable chord (default ⌥⌘D)
 - 🔒 **100% offline** — Whisper + LLM both run on-device; works in airplane mode
-- 🌊 **Live waveform HUD** — voice-reactive, never steals focus
+- 🌊 **Live waveform HUD** — monochrome, voice-reactive, follows you across displays, never steals focus
+- 📊 **Stats dashboard** — dictations, words, and time saved vs typing by day/week/month/year
 - ✨ **Two-stage cleanup** — instant regex pass, plus an optional local-LLM polish with a paraphrase guard (if the LLM rewrites instead of cleaning, its output is discarded)
 - 📚 **Dictation history** — searchable, persistent, with one-click copy
 - 📖 **Custom vocabulary** — teach it names it mishears; your casing always wins
@@ -99,7 +102,7 @@ On first launch, LokVaani walks you through the three permissions it needs and t
 Everything lives in the menu-bar icon:
 
 - **Settings** — hotkeys, Whisper model (large-v3-turbo ↔ small for low memory), LLM polish on/off, Ollama model tag, launch at login
-- **History & Vocabulary** — browse/search past dictations; add corrections for words it mishears
+- **Dashboard** — usage stats (time saved vs typing), browse/search past dictations, add corrections for words it mishears
 
 Optional environment overrides (mainly for terminal runs) — see [.env.example](.env.example):
 

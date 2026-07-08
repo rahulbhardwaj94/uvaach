@@ -4,12 +4,132 @@ import AppKit
 struct DashboardView: View {
     var body: some View {
         TabView {
+            StatsTab()
+                .tabItem { Label("Stats", systemImage: "chart.bar.xaxis") }
             HistoryTab()
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
             VocabularyTab()
                 .tabItem { Label("Vocabulary", systemImage: "character.book.closed") }
         }
         .frame(width: 560, height: 420)
+    }
+}
+
+// MARK: - Stats
+
+/// Usage stats derived from history: how often you dictate, how many words,
+/// and how much time speaking saved over typing the same words.
+private struct StatsTab: View {
+    @ObservedObject private var store = TranscriptStore.shared
+
+    /// Average typing speed used as the baseline for "time saved".
+    private static let typingWPM = 40.0
+
+    private struct PeriodStats: Identifiable {
+        let id: String
+        let label: String
+        let dictations: Int
+        let words: Int
+        let spokenSeconds: Double
+        /// Typing the same words at 40 wpm, minus the time spent speaking.
+        var savedSeconds: Double {
+            max(0, Double(words) / StatsTab.typingWPM * 60 - spokenSeconds)
+        }
+    }
+
+    private var periods: [PeriodStats] {
+        let cal = Calendar.current
+        let now = Date()
+        func stats(_ label: String, since: Date?) -> PeriodStats {
+            let entries = since.map { s in store.entries.filter { $0.date >= s } }
+                ?? store.entries
+            let words = entries.reduce(0) {
+                $0 + $1.text.split(whereSeparator: \.isWhitespace).count
+            }
+            return PeriodStats(
+                id: label, label: label,
+                dictations: entries.count, words: words,
+                spokenSeconds: entries.reduce(0) { $0 + $1.audioSeconds }
+            )
+        }
+        return [
+            stats("Today", since: cal.startOfDay(for: now)),
+            stats("This week", since: cal.dateInterval(of: .weekOfYear, for: now)?.start),
+            stats("This month", since: cal.dateInterval(of: .month, for: now)?.start),
+            stats("This year", since: cal.dateInterval(of: .year, for: now)?.start),
+            stats("All time", since: nil),
+        ]
+    }
+
+    private var speakingWPM: Double? {
+        let all = periods.last!
+        guard all.spokenSeconds > 5 else { return nil }
+        return Double(all.words) / (all.spokenSeconds / 60)
+    }
+
+    var body: some View {
+        let periods = self.periods
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                StatTile(
+                    title: "Time saved (all time)",
+                    value: Self.duration(periods.last!.savedSeconds),
+                    symbol: "clock.badge.checkmark"
+                )
+                StatTile(
+                    title: "Your speaking speed",
+                    value: speakingWPM.map { "\(Int($0)) wpm" } ?? "—",
+                    symbol: "gauge.with.needle"
+                )
+                StatTile(
+                    title: "Words dictated",
+                    value: "\(periods.last!.words)",
+                    symbol: "text.word.spacing"
+                )
+            }
+            .padding(12)
+
+            Table(periods) {
+                TableColumn("Period", value: \.label)
+                TableColumn("Dictations") { Text("\($0.dictations)") }
+                TableColumn("Words") { Text("\($0.words)") }
+                TableColumn("Speaking time") { Text(Self.duration($0.spokenSeconds)) }
+                TableColumn("Time saved vs typing") { p in
+                    Text(Self.duration(p.savedSeconds)).bold()
+                }
+            }
+
+            Text("Time saved compares your speaking pace with typing the same words at \(Int(Self.typingWPM)) wpm (average typing speed).")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(8)
+        }
+    }
+
+    private static func duration(_ seconds: Double) -> String {
+        let s = Int(seconds.rounded())
+        if s < 60 { return "\(s)s" }
+        if s < 3600 { return "\(s / 60)m \(s % 60)s" }
+        return "\(s / 3600)h \((s % 3600) / 60)m"
+    }
+}
+
+private struct StatTile: View {
+    let title: String
+    let value: String
+    let symbol: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(title, systemImage: symbol)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.title2.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 

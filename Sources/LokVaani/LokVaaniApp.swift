@@ -66,6 +66,8 @@ final class AppState: ObservableObject {
     @Published var lastTranscript: String?
     /// Mic RMS level while recording, 0…~0.3 typical speech. Drives the HUD bars.
     @Published var audioLevel: Float = 0
+    /// True when a ≥3 s hold released into hands-free mode (tap once to stop).
+    @Published var isHandsFree = false
 
     private init() {}
 }
@@ -76,7 +78,7 @@ struct MenuContent: View {
     var body: some View {
         Text("LokVaani — \(appState.status.label)")
         Divider()
-        Button("History & Vocabulary…") {
+        Button("Dashboard…") {
             DashboardWindow.shared.show()
         }
         Button("Settings…") {

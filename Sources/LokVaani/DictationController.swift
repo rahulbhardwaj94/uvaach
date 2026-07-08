@@ -12,6 +12,12 @@ final class DictationController {
     /// Discard blips shorter than this (accidental key taps).
     private let minimumSamples = Int(AudioRecorder.targetSampleRate * 0.3)
 
+    /// Holding the PTT key at least this long, then releasing, locks into
+    /// hands-free mode: recording continues until a single tap of the key.
+    private let handsFreeHoldThreshold: TimeInterval = 3.0
+    private var pttDownAt: Date?
+    private var suppressNextKeyUp = false
+
     private init() {}
 
     func start() {
@@ -20,13 +26,43 @@ final class DictationController {
             await TranscriptionService.shared.warmUp(model: SettingsStore.shared.whisperModel)
         }
 
-        hotkeys.onPushToTalkDown = { [weak self] in self?.beginRecording() }
-        hotkeys.onPushToTalkUp = { [weak self] in self?.finishRecording() }
+        hotkeys.onPushToTalkDown = { [weak self] in self?.pushToTalkDown() }
+        hotkeys.onPushToTalkUp = { [weak self] in self?.pushToTalkUp() }
         hotkeys.onToggle = { [weak self] in
             guard let self else { return }
             AppState.shared.status == .recording ? finishRecording() : beginRecording()
         }
         hotkeys.start()
+    }
+
+    // MARK: - Push-to-talk with hands-free lock
+
+    private func pushToTalkDown() {
+        if AppState.shared.isHandsFree {
+            // Single tap while hands-free: stop. Swallow the matching key-up
+            // so it isn't misread as the end of a fresh hold.
+            suppressNextKeyUp = true
+            finishRecording()
+            return
+        }
+        pttDownAt = Date()
+        beginRecording()
+    }
+
+    private func pushToTalkUp() {
+        if suppressNextKeyUp {
+            suppressNextKeyUp = false
+            return
+        }
+        guard AppState.shared.status == .recording else { return }
+        if let downAt = pttDownAt, Date().timeIntervalSince(downAt) >= handsFreeHoldThreshold {
+            // Held long enough: release doesn't stop — lock into hands-free
+            // so long dictations don't require pinning the key down.
+            AppState.shared.isHandsFree = true
+            NSSound(named: "Tink")?.play()
+            return
+        }
+        finishRecording()
     }
 
     private func beginRecording() {
@@ -56,6 +92,8 @@ final class DictationController {
         guard AppState.shared.status == .recording else { return }
         AppState.shared.status = .transcribing
         AppState.shared.audioLevel = 0
+        AppState.shared.isHandsFree = false
+        pttDownAt = nil
 
         Task {
             // Grace period: people release the key while the last word is

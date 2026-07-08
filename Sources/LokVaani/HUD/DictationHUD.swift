@@ -10,13 +10,13 @@ final class DictationHUD {
     static let shared = DictationHUD()
 
     private var panel: NSPanel?
+    private static let size = NSSize(width: 150, height: 34)
 
     func show() {
         if panel == nil {
             let hosting = NSHostingView(rootView: HUDView())
-            let size = NSSize(width: 170, height: 44)
             let p = NSPanel(
-                contentRect: NSRect(origin: .zero, size: size),
+                contentRect: NSRect(origin: .zero, size: Self.size),
                 styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
                 defer: true
@@ -51,7 +51,13 @@ final class DictationHUD {
     }
 
     private func position() {
-        guard let panel, let screen = NSScreen.main else { return }
+        // Follow the user across displays: show on the screen holding the
+        // pointer (where they're working), not always the primary display.
+        guard let panel else { return }
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+            ?? NSScreen.main ?? NSScreen.screens.first
+        guard let screen else { return }
         let frame = screen.visibleFrame
         let origin = NSPoint(
             x: frame.midX - panel.frame.width / 2,
@@ -65,53 +71,48 @@ private struct HUDView: View {
     @ObservedObject private var appState = AppState.shared
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             switch appState.status {
             case .recording:
                 EqualizerBars(level: appState.audioLevel)
                 Text("Listening…")
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.92))
+                if appState.isHandsFree {
+                    // Hands-free lock engaged: recording continues until a
+                    // single tap of the hold key.
+                    Image(systemName: "lock.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.65))
+                }
             case .transcribing, .injecting:
                 ProcessingDots()
                 Text("Transcribing…")
-                    .font(.callout)
+                    .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.75))
             case .idle:
                 EmptyView()
             }
         }
-        .padding(.horizontal, 16)
-        .frame(width: 170, height: 44)
-        .background(AuroraGlass())
+        .padding(.horizontal, 14)
+        .frame(width: 150, height: 34)
+        .background(MonoGlass())
         .clipShape(Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.12), lineWidth: 1))
+        .overlay(Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 1))
         .environment(\.colorScheme, .dark)
-        .tint(.blue)
     }
 }
 
-/// "Aurora Glass": near-black frosted glass with faint violet/indigo auroras
-/// drifting inside the pill. Premium, cinematic, and dark in any wallpaper.
-private struct AuroraGlass: View {
+/// Near-black frosted glass with a faint white sheen — strictly monochrome.
+private struct MonoGlass: View {
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { context in
-            let time = context.date.timeIntervalSinceReferenceDate
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Color.black.opacity(0.62)
-                // Two slow-drifting aurora blooms.
-                RadialGradient(
-                    colors: [Color.purple.opacity(0.32), .clear],
-                    center: UnitPoint(x: 0.25 + 0.1 * sin(time * 0.4), y: 0.1),
-                    startRadius: 0, endRadius: 90
-                )
-                RadialGradient(
-                    colors: [Color.indigo.opacity(0.28), .clear],
-                    center: UnitPoint(x: 0.8 + 0.08 * sin(time * 0.3 + 2), y: 0.9),
-                    startRadius: 0, endRadius: 100
-                )
-            }
+        ZStack {
+            Rectangle().fill(.ultraThinMaterial)
+            Color.black.opacity(0.72)
+            LinearGradient(
+                colors: [Color.white.opacity(0.08), .clear],
+                startPoint: .top, endPoint: .center
+            )
         }
     }
 }
@@ -125,7 +126,7 @@ private struct EqualizerBars: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 3) {
+            HStack(spacing: 2.5) {
                 ForEach(0..<barCount, id: \.self) { i in
                     // Two offset sines per bar so neighbours never sync up.
                     let phase = Double(i) * 0.9
@@ -135,13 +136,15 @@ private struct EqualizerBars: View {
                     let drive = 0.35 + min(CGFloat(level) * 10, 1) * 0.65
                     Capsule()
                         .fill(
-                            LinearGradient(colors: [.purple, .cyan],
-                                           startPoint: .bottom, endPoint: .top)
+                            LinearGradient(
+                                colors: [.white, .white.opacity(0.55)],
+                                startPoint: .bottom, endPoint: .top
+                            )
                         )
-                        .frame(width: 3.5, height: max(5, 24 * bounce * drive))
+                        .frame(width: 3, height: max(4, 18 * bounce * drive))
                 }
             }
-            .frame(width: 36, height: 26)
+            .frame(width: 30, height: 20)
         }
     }
 }
@@ -154,10 +157,10 @@ private struct ProcessingDots: View {
                 ForEach(0..<3, id: \.self) { i in
                     let pulse = 0.5 + 0.5 * sin(time * 5 - Double(i) * 0.9)
                     Circle()
-                        .fill(.cyan)
-                        .frame(width: 6, height: 6)
+                        .fill(.white)
+                        .frame(width: 5, height: 5)
                         .opacity(0.35 + 0.65 * pulse)
-                        .shadow(color: .cyan.opacity(0.8 * pulse), radius: 4)
+                        .shadow(color: .white.opacity(0.6 * pulse), radius: 3)
                         .scaleEffect(0.85 + 0.3 * pulse)
                 }
             }
