@@ -11,8 +11,8 @@ final class DictationHUD {
 
     private var panel: NSPanel?
     /// Compact while listening; grows wider to fit the live preview line.
-    private static let compactSize = NSSize(width: 170, height: 40)
-    private static let previewSize = NSSize(width: 360, height: 44)
+    private static let compactSize = NSSize(width: 176, height: 46)
+    private static let previewSize = NSSize(width: 360, height: 50)
 
     func show() {
         if panel == nil {
@@ -174,10 +174,10 @@ private struct EqualizerBars: View {
                                 startPoint: .bottom, endPoint: .top
                             )
                         )
-                        .frame(width: 1.6, height: max(3, 28 * bounce * drive))
+                        .frame(width: 1.6, height: max(3, 34 * bounce * drive))
                 }
             }
-            .frame(width: 38, height: 28)
+            .frame(width: 38, height: 34)
         }
     }
 }
