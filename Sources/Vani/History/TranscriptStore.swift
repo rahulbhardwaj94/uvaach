@@ -15,6 +15,11 @@ final class TranscriptStore: ObservableObject {
         /// saved by older versions still decodes.
         let raw: String?
         let audioSeconds: Double
+        /// Stop → text-ready latency. Optional: absent on older entries.
+        let processingSeconds: Double?
+        /// "incremental" (chunks decoded while speaking) or "classic"
+        /// (full decode after stop). Optional on older entries.
+        let engine: String?
     }
 
     @Published private(set) var entries: [Entry] = []
@@ -29,9 +34,11 @@ final class TranscriptStore: ObservableObject {
         entries = (try? JSONDecoder().decode([Entry].self, from: Data(contentsOf: fileURL))) ?? []
     }
 
-    func add(text: String, raw: String? = nil, audioSeconds: Double) {
+    func add(text: String, raw: String? = nil, audioSeconds: Double,
+             processingSeconds: Double? = nil, engine: String? = nil) {
         entries.insert(
-            Entry(id: UUID(), date: .now, text: text, raw: raw, audioSeconds: audioSeconds),
+            Entry(id: UUID(), date: .now, text: text, raw: raw, audioSeconds: audioSeconds,
+                  processingSeconds: processingSeconds, engine: engine),
             at: 0
         )
         if entries.count > Self.maxEntries {

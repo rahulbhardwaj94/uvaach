@@ -317,7 +317,9 @@ final class DictationController {
         TranscriptStore.shared.add(
             text: text,
             raw: raw,
-            audioSeconds: Double(samples.count) / AudioRecorder.targetSampleRate
+            audioSeconds: Double(samples.count) / AudioRecorder.targetSampleRate,
+            processingSeconds: Date().timeIntervalSince(started),
+            engine: path
         )
         _ = await TextInjector.insert(text) // hides the HUD itself at paste time
 

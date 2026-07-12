@@ -67,6 +67,13 @@ private struct StatsTab: View {
         return Double(all.words) / (all.spokenSeconds / 60)
     }
 
+    /// Mean stop→text latency over the last 10 dictations that recorded one.
+    private var recentLatency: Double? {
+        let waits = store.entries.compactMap(\.processingSeconds).prefix(10)
+        guard !waits.isEmpty else { return nil }
+        return waits.reduce(0, +) / Double(waits.count)
+    }
+
     var body: some View {
         let periods = self.periods
         VStack(spacing: 0) {
@@ -85,6 +92,11 @@ private struct StatsTab: View {
                     title: "Words dictated",
                     value: "\(periods.last!.words)",
                     symbol: "text.word.spacing"
+                )
+                StatTile(
+                    title: "Stop → text (last 10)",
+                    value: recentLatency.map { String(format: "%.1fs", $0) } ?? "—",
+                    symbol: "bolt"
                 )
             }
             .padding(12)
@@ -191,6 +203,11 @@ private struct HistoryRow: View {
             HStack {
                 Text(entry.date, format: .dateTime.day().month().hour().minute())
                 Text("· \(entry.audioSeconds, format: .number.precision(.fractionLength(1)))s of audio")
+                if let wait = entry.processingSeconds {
+                    // ⚡ = incremental (decoded while speaking); no bolt =
+                    // classic full decode after stop.
+                    Text("· ready in \(wait, format: .number.precision(.fractionLength(1)))s\(entry.engine == "incremental" ? " ⚡" : "")")
+                }
                 Spacer()
                 Button {
                     NSPasteboard.general.clearContents()
