@@ -32,7 +32,13 @@ actor TranscriptionService {
     private var biasTerms: [String] = []
 
     func setBiasTerms(_ terms: [String]) {
-        biasTerms = Array(terms.prefix(40))
+        // Dedupe (many rules map to the same canonical word — 7 mishear
+        // rules all replacing to "Vani" once produced the prompt
+        // "Glossary: Vani, Vani, Vani…", and a repeated-token prompt makes
+        // the decoder emit empty text or fall down the temperature-retry
+        // ladder, tripling chunk decode times).
+        var seen = Set<String>()
+        biasTerms = Array(terms.filter { seen.insert($0.lowercased()).inserted }.prefix(40))
     }
 
     /// Idempotent; safe to call at launch and again before first use.
@@ -202,8 +208,28 @@ actor TranscriptionService {
             promptTokens: prompt
         )
         let results = try await whisperKit.transcribe(audioArray: samples, decodeOptions: options)
-        return results.map(\.text).joined(separator: " ")
+        let text = results.map(\.text).joined(separator: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        // A prompted decode that comes back empty on real audio is almost
+        // always the prompt confusing the decoder, not silence (field log:
+        // a 14.9 s spoken tail → 0 chars). The glossary is a nicety; the
+        // words are not. Retry bare before letting callers treat this as
+        // silence and fall back to a full classic re-decode.
+        if text.isEmpty, prompt != nil,
+           samples.count > Int(2 * AudioRecorder.targetSampleRate) {
+            let bare = DecodingOptions(
+                task: .transcribe,
+                language: language,
+                usePrefillPrompt: true,
+                detectLanguage: language == nil
+            )
+            let retried = try await whisperKit.transcribe(audioArray: samples, decodeOptions: bare)
+            let bareText = retried.map(\.text).joined(separator: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            VaniLog.log("prompted decode empty → bare retry: \(bareText.count) chars")
+            return bareText
+        }
+        return text
     }
 
     /// Split audio into pause-delimited speech segments (sample-index ranges).
