@@ -143,7 +143,9 @@ final class IncrementalTranscriber {
             parts.append(text)
         }
         VaniLog.log("incremental finish: \(parts.count) parts, frontier \(frontier)")
-        return parts.joined(separator: " ")
+        // Whisper punctuates each chunk as a complete utterance; repair the
+        // spurious sentence breaks at the seams instead of space-joining.
+        return ChunkJoiner.join(parts)
     }
 
     private func decodeNewlyClosedChunks(in samples: [Float]) async {
