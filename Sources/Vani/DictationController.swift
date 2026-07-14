@@ -178,8 +178,10 @@ final class DictationController {
             try recorder.start(gain: SettingsStore.shared.whisperModeEnabled ? 4 : 1)
             // Refresh the decoder's glossary from the vocabulary so this
             // dictation is biased toward the user's own words.
-            let terms = VocabularyStore.shared.rules.map(\.replace)
-            Task.detached { await TranscriptionService.shared.setBiasTerms(terms) }
+            if FeatureFlags.promptBias {
+                let terms = VocabularyStore.shared.rules.map(\.replace)
+                Task.detached { await TranscriptionService.shared.setBiasTerms(terms) }
+            }
             AppState.shared.status = .recording
             AppState.shared.recordingStartedAt = Date()
             AppState.shared.previewTranscript = nil
@@ -337,6 +339,20 @@ final class DictationController {
         let settings = SettingsStore.shared
         let started = Date()
 
+        // No voiced audio at all (accidental tap/lock in a quiet room):
+        // decoding room tone yields hallucinated stock phrases ("Thank
+        // you."), so there is nothing legitimate to paste. Bail before
+        // spending a decode on it.
+        let voiced = TranscriptionService.speechSegments(in: samples)
+        let speechSeconds = voiced.reduce(0.0) {
+            $0 + Double($1.end - $1.start) / AudioRecorder.targetSampleRate
+        }
+        guard !voiced.isEmpty else {
+            VaniLog.log(String(format: "no speech in %.1fs recording → discarded",
+                Double(samples.count) / AudioRecorder.targetSampleRate))
+            return
+        }
+
         // Long dictation: most chunks were decoded while speaking, so this
         // only waits for the tail. Short dictation (or a failed incremental
         // run): the classic single pass, with its code-switch grouping.
@@ -363,6 +379,12 @@ final class DictationController {
             Double(samples.count) / AudioRecorder.targetSampleRate,
             raw.count, path, Date().timeIntervalSince(started)))
         guard !raw.isEmpty else { return }
+        // A stock phrase decoded from a recording with under ~1.5 s of
+        // voiced audio is Whisper hallucinating on room tone, not speech.
+        if WhisperArtifacts.isSilenceHallucination(raw, speechSeconds: speechSeconds) {
+            VaniLog.log("silence hallucination \"\(raw)\" (\(String(format: "%.1f", speechSeconds))s voiced) → discarded")
+            return
+        }
 
         // Code mode: the paste target is a terminal/editor, so prose
         // conventions (auto-caps, trailing period, LLM polish) get out of
