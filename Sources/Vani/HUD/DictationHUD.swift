@@ -89,7 +89,7 @@ private struct HUDView: View {
     @ObservedObject private var appState = AppState.shared
 
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: 12) {
             switch appState.status {
             case .recording:
                 HaloMic()
@@ -188,15 +188,17 @@ private struct HaloMic: View {
             let time = context.date.timeIntervalSinceReferenceDate
             let breath = 0.5 + 0.5 * sin(time * 2.2)
             ZStack {
+                // Halo stays inside its 24 pt slot (blur included) so the
+                // gap to the bars never visibly shrinks as it breathes.
                 Circle()
                     .fill(.white.opacity(0.10 + 0.14 * breath))
-                    .frame(width: 22 + 5 * breath, height: 22 + 5 * breath)
-                    .blur(radius: 5)
+                    .frame(width: 16 + 3 * breath, height: 16 + 3 * breath)
+                    .blur(radius: 3)
                 Image(systemName: "mic.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(.white.opacity(0.85))
             }
-            .frame(width: 27, height: 27)
+            .frame(width: 24, height: 24)
         }
     }
 }
