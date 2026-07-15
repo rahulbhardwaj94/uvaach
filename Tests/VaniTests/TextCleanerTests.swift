@@ -5,9 +5,13 @@ func textCleanerTests() {
     expect(TextCleaner.clean("um, testing one two"), "Testing one two")
     expect(TextCleaner.clean("so, uh, let's begin"), "So, let's begin")
 
+    // "ah" is a filler like "uh" (field: "and ah Build all those things").
+    expect(TextCleaner.clean("sub agents and ah Build all those things"), "Sub agents and Build all those things")
+
     // Words that merely contain filler sounds survive.
     expect(TextCleaner.clean("umbrella time"), "Umbrella time")
     expect(TextCleaner.clean("the hummus is good"), "The hummus is good")
+    expect(TextCleaner.clean("ahead of schedule"), "Ahead of schedule")
 
     // The "Mmm……" hum goes, including its own trailing dots; real
     // sentence punctuation around it survives.

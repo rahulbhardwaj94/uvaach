@@ -7,7 +7,7 @@ public enum TextCleaner {
     /// The filler's own trailing comma/periods/ellipsis are swallowed with
     /// it — they punctuate the hum, not the sentence.
     private static let fillerPattern = try! NSRegularExpression(
-        pattern: #"(?i)(?<![\w'])(um+|uh+|erm+|hmm+|m{3,})(?![\w'])[.,…]*\s*"#
+        pattern: #"(?i)(?<![\w'])(um+|uh+|ah+|erm+|hmm+|m{3,})(?![\w'])[.,…]*\s*"#
     )
 
     /// `codeMode`: cleaning for terminals/editors — no auto-capitalization
