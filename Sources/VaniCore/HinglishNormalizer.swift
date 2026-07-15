@@ -49,7 +49,8 @@ public enum HinglishNormalizer {
         // Work & scheduling.
         "मीटिंग": "meeting", "मीटिंग्स": "meetings", "प्रोजेक्ट": "project",
         "प्रोजेक्ट्स": "projects", "अपडेट": "update", "अपडेट्स": "updates",
-        "डिस्कस": "discuss", "डिटेल": "detail", "डिटेल्स": "details",
+        "डिस्कस": "discuss", "डिसकस": "discuss",
+        "डिटेल": "detail", "डिटेल्स": "details", "देटेल्स": "details",
         "कॉल": "call", "कॉल्स": "calls", "ईमेल": "email", "फोन": "phone",
         "टाइम": "time", "डेडलाइन": "deadline", "ऑफिस": "office",
         "ऑफ़िस": "office", "वीकेंड": "weekend", "प्लान": "plan",

@@ -210,11 +210,20 @@ public actor TranscriptionService {
     /// kick off a background warm-up so this dictation uses the slower
     /// fallback but later code-switches get the fast path.
     private static func detectLanguageFast(_ samples: [Float], fallback: WhisperKit) async -> String {
-        if let lang = await preview.detectLanguage(samples) { return lang }
+        if let lang = await preview.detectLanguage(samples) { return canonical(lang) }
         Task.detached(priority: .background) {
             await preview.warmUp(model: Self.previewModelName)
         }
-        return (try? await fallback.detectLangauge(audioArray: samples).language) ?? "en"
+        return canonical((try? await fallback.detectLangauge(audioArray: samples).language) ?? "en")
+    }
+
+    /// Spoken Hindustani is one language; Whisper's hi/ur verdict is a script
+    /// convention, not a language distinction. A Hindi dictation tagged [ur]
+    /// (field: "हम लोग" → ur, which the plausibility clamp then snapped to en
+    /// and Whisper *translated* the whole tail) must decode as hi — the
+    /// script this user's Hindi is written in.
+    private static func canonical(_ language: String) -> String {
+        language == "ur" ? "hi" : language
     }
 
     /// Language ID on this instance's model; nil unless loaded and ready.
